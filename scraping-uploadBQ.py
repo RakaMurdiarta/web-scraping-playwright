@@ -5,7 +5,6 @@ import time
 import json
 import pandas as pd
 import pandas_gbq as pg
-import itertools
 from google.cloud import bigquery
 import warnings
 import math
@@ -130,35 +129,35 @@ def scrape_data(nik_list):
     return results
 
 def checkingBQ(source_nik):
-    batch = 1000
+    batch = 4000
     data_source = [nik_key for nik_key in  source_nik.keys()]
     start= 0
-    end = 1000
+    end = 4000
     append_data =[]
     for req__ in range(math.ceil(len(data_source)/batch)):
+        print('requst query no :',req__)
         data_slicing= data_source[start:end]
         query = f"""select item from unnest({data_slicing}) as item where item not in (SELECT NIK FROM `dev-sakti.sakti_rnd_dwh.all_koperasi_web_scraping`)"""
         data_BQ = pg.read_gbq(query,project_id='dev-sakti')
         data_ = data_BQ['item']
         nikBQ = data_.to_list()
-        if len(nikBQ)==0:
-            return []
-        else:
-            for key , value in source_nik.items():
-                if key in nikBQ:
-                    append_data.append(key)
+        print(f'how many data not exist in BQ : {len(nikBQ)}')
+        for datanik in nikBQ:
+            append_data.append(datanik)
         start +=batch
         end+=batch
+    if len(nikBQ)==0:
+        return []
+        
     return append_data
 
     
-
 
 df = pd.DataFrame()
 clientBQ = bigquery.Client(project='dev-sakti')
 
 
-open_source_data = open('./data.json')
+open_source_data = open('./data-nik/koperasi_nik.json')
 read_source_data = json.load(open_source_data)
 
 #checking nik between source data in BQ
@@ -176,8 +175,7 @@ else:
         start_time = time.time()
         slicing = datafromCheckBq[start_batch : end_batch]
         print("Processing...")
-        # results = scrape_data(slicing)
-        print('dataframe',datafromCheckBq)
+        results = scrape_data(slicing)
         print("End Scraping")
         print('start create df')
         df_concat = pd.DataFrame(
@@ -218,17 +216,17 @@ else:
         execution_time = end_time - start_time
 
         print("Uploading to BigQuery...")
-        # client = bigquery.Client(project="dev-sakti")
-        # dataset_id = "sakti_rnd_dwh"
+        client = bigquery.Client(project="dev-sakti")
+        dataset_id = "sakti_rnd_dwh"
 
-        # dataset_ref = client.dataset(dataset_id)
-        # job_config = bigquery.LoadJobConfig()
-        # job_config.autodetect = True
-        # job_config.write_disposition = "WRITE_APPEND"
+        dataset_ref = client.dataset(dataset_id)
+        job_config = bigquery.LoadJobConfig()
+        job_config.autodetect = True
+        job_config.write_disposition = "WRITE_APPEND"
 
-        # load_job = client.load_table_from_dataframe(
-        #     df_concat, dataset_ref.table("all_koperasi_web_scraping"), job_config=job_config
-        # )
+        load_job = client.load_table_from_dataframe(
+            df_concat, dataset_ref.table("all_koperasi_web_scraping"), job_config=job_config
+        )
         df = pd.concat([df_concat, df])
         reset_arrays()
         start_batch+=batch_size
@@ -237,3 +235,4 @@ else:
         print("Execution Time:", execution_time)
 
 df.to_csv('testing.csv', index=False)
+open_source_data.close()

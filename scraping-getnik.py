@@ -160,4 +160,4 @@ with sync_playwright() as p:
         with open("data/data-json-full.json", "w") as jsonWrite:
             json.dump(jsonData, jsonWrite)
     page.close()
-# os.system("shutdown -s")
+os.system("shutdown -s")
