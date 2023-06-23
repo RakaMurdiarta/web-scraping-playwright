@@ -8,6 +8,7 @@ import pandas_gbq as pg
 from google.cloud import bigquery
 import warnings
 import math
+from functools import partial
 
 warnings.filterwarnings("ignore")
 
@@ -130,7 +131,7 @@ def scrape_data(nik_list):
 
 def checkingBQ(source_nik):
     batch = 4000
-    data_source = [nik_key for nik_key in  source_nik.keys()]
+    data_source = [nik_key for nik_key in source_nik.keys()]
     start= 0
     end = 4000
     append_data =[]
@@ -151,7 +152,32 @@ def checkingBQ(source_nik):
         
     return append_data
 
-    
+def checkingStatusKoperasi(list_nik):
+    query = f"""SELECT NIK FROM `dev-sakti.sakti_rnd_dwh.all_koperasi_web_scraping` where NIK not in(select item from unnest({list_nik}) as item)"""
+    data_BQ = pg.read_gbq(query,project_id='dev-sakti')
+    data = data_BQ['NIK'].to_list()
+    return data
+
+def updateBQ(nik,client_):
+    try:
+        query = f"""UPDATE `dev-sakti.sakti_rnd_dwh.all_koperasi_web_scraping` SET Status = "Tidak Aktif" WHERE NIK ={nik}"""
+        job = client_.query(query)
+        job.result()
+        return True
+    except Exception as e:
+        print(f'there is something wrong this is the error {str(e)}')
+        return False
+
+
+def process_update_BQ(new_nik,client):
+    results =[]
+    with ThreadPoolExecutor() as executor:
+        partial_arg =partial(updateBQ,client)
+        futures = [executor.submit(partial_arg , nik_) for nik_ in new_nik]
+        for f in futures:
+            results.append(f.result())
+        return results
+
 
 df = pd.DataFrame()
 clientBQ = bigquery.Client(project='dev-sakti')
@@ -209,6 +235,7 @@ else:
                 "Status_NIK": status_nik,
                 "Tanggal_Berlaku_Sertipikat": tgl_berlaku_serti,
                 "Status_Grade": status_grade,
+                "Status" : "Aktif"
             }
         )
 
@@ -234,5 +261,9 @@ else:
         print(f"DONE LOOP {n_data}")
         print("Execution Time:", execution_time)
 
-df.to_csv('testing.csv', index=False)
+        print('prosess checking status koperasi')
+        list_koperasi_tidak_aktif = checkingStatusKoperasi(read_source_data)
+        process_update_BQ(list_koperasi_tidak_aktif,clientBQ)
+        print('proses check done .....')
+
 open_source_data.close()
