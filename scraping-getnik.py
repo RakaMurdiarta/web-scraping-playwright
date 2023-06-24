@@ -10,18 +10,24 @@ nikJson = {}
 validasi = []
 validasi_click = []
 with sync_playwright() as p:
-    browser = p.chromium.launch(headless=False)
-    page = browser.new_page()
+    browser = p.chromium.launch(headless=False,)
+
+    context = browser.new_context(
+        ignore_https_errors=True, bypass_csp=True)
+    page = context.new_page()
     page.goto("http://nik.depkop.go.id/")
     page.wait_for_load_state("domcontentloaded", timeout=2000)
-    dropdown_provinsi = page.locator('select[id="MainContent_DropDownList1"] option').all()
+    dropdown_provinsi = page.locator(
+        'select[id="MainContent_DropDownList1"] option').all()
+    print('haii')
     while True:
         kop = open("./koperasi.json")
         koperasiJson = json.load(kop)
         filteredJson = {}
         for k, v in koperasiJson.items():
             if any(value == "False" for value in v.values()):
-                filteredJson[k] = {key: value for key, value in v.items() if value == "False"}
+                filteredJson[k] = {key: value for key,
+                                   value in v.items() if value == "False"}
 
         if len(filteredJson) == 0:
             break
@@ -32,104 +38,132 @@ with sync_playwright() as p:
             for kabupaten_data in value.keys():
                 print(kabupaten_data)
                 print("mulai - kab")
-                kabupaten_list = page.locator('select[id="MainContent_DropDownList2"] option').all()
-                page.locator("#MainContent_DropDownList2").select_option(kabupaten_data)
-                page.wait_for_selector('//*[@id="MainContent_GridView1"]/tbody/tr/td[7]').is_visible()
-                kabupaten_list = page.locator('select[id="MainContent_DropDownList2"] option').all()
+                kabupaten_list = page.locator(
+                    'select[id="MainContent_DropDownList2"] option').all()
+                page.locator("#MainContent_DropDownList2").select_option(
+                    kabupaten_data)
+                kabupaten_list = page.locator(
+                    'select[id="MainContent_DropDownList2"] option').all()
                 koperasiJson[key][kabupaten_data] = "True"
                 jsonData[kabupaten_data] = {}
-                page.wait_for_selector('//*[@id="MainContent_GridView1"]/tbody/tr/td[7]').is_visible()
-                getNikLoop2 = page.locator('//*[@id="MainContent_GridView1"]/tbody/tr/td[7]').all()
+                getNikLoop2 = page.locator(
+                    '//*[@id="MainContent_GridView1"]/tbody/tr/td[7]').all()
                 for nik2 in range(len(getNikLoop2)):
                     niktext = getNikLoop2[nik2]
                     validasi.append(niktext.inner_text())
-                lengthPage = page.locator("//table[@id='MainContent_DetailsView1']//td[2]")
+                lengthPage = page.locator(
+                    "//table[@id='MainContent_DetailsView1']//td[2]")
                 if (len(validasi) == 20) or (len(validasi) == int(lengthPage.inner_text())):
                     print("masuk valid")
-                    getNikLoop2 = page.locator('//*[@id="MainContent_GridView1"]/tbody/tr/td[7]').all()
+                    getNikLoop2 = page.locator(
+                        '//*[@id="MainContent_GridView1"]/tbody/tr/td[7]').all()
                     for nik2 in range(len(getNikLoop2)):
                         niktext = getNikLoop2[nik2]
                         nikJson[niktext.inner_text()] = "False"
-                        jsonData[kabupaten_data][niktext.inner_text()] = "False"
+                        jsonData[kabupaten_data][niktext.inner_text()
+                                                 ] = "False"
                 else:
                     print("masuk while")
                     while True:
                         validasi.clear()
-                        getNikLoop2 = page.locator('//*[@id="MainContent_GridView1"]/tbody/tr/td[7]').all()
+                        getNikLoop2 = page.locator(
+                            '//*[@id="MainContent_GridView1"]/tbody/tr/td[7]').all()
                         for nik2 in range(len(getNikLoop2)):
-                            getNikLoop2 = page.locator('//*[@id="MainContent_GridView1"]/tbody/tr/td[7]').all()
+                            getNikLoop2 = page.locator(
+                                '//*[@id="MainContent_GridView1"]/tbody/tr/td[7]').all()
                             niktext = getNikLoop2[nik2]
                             validasi.append(niktext.inner_text())
                         if len(validasi) == 20:
                             for nik2 in range(len(getNikLoop2)):
-                                getNikLoop2 = page.locator('//*[@id="MainContent_GridView1"]/tbody/tr/td[7]').all()
+                                getNikLoop2 = page.locator(
+                                    '//*[@id="MainContent_GridView1"]/tbody/tr/td[7]').all()
                                 niktext = getNikLoop2[nik2]
                                 print(niktext.inner_text())
                                 nikJson[niktext.inner_text()] = "False"
-                                jsonData[kabupaten_data][niktext.inner_text()] = "False"
+                                jsonData[kabupaten_data][niktext.inner_text()
+                                                         ] = "False"
                             break
-                lengthPage = page.locator("//table[@id='MainContent_DetailsView1']//td[2]")
-                print("Total Pages", math.ceil(int(lengthPage.inner_text()) / 20))
-                lengthPage = page.locator("//table[@id='MainContent_DetailsView1']//td[2]")
+                lengthPage = page.locator(
+                    "//table[@id='MainContent_DetailsView1']//td[2]")
+                print("Total Pages", math.ceil(
+                    int(lengthPage.inner_text()) / 20))
+                lengthPage = page.locator(
+                    "//table[@id='MainContent_DetailsView1']//td[2]")
                 for pagesLength in range(2, math.ceil(int(lengthPage.inner_text()) / 20) + 1):
                     page.click(
                         f"table[id=\"MainContent_GridView1\"] > tbody > tr > td > table > tbody > tr > td > a[href=\"javascript:__doPostBack('ctl00$MainContent$GridView1','Page${pagesLength}')\"]"
                     )
-                    page.wait_for_selector('//*[@id="MainContent_GridView1"]/tbody/tr/td[7]').is_visible()
-                    getNikLoop3 = page.locator('//*[@id="MainContent_GridView1"]/tbody/tr/td[7]').all()
+                    page.wait_for_load_state("domcontentloaded", timeout=2000)
+                    getNikLoop3 = page.locator(
+                        '//*[@id="MainContent_GridView1"]/tbody/tr/td[7]').all()
                     for nikw in range(len(getNikLoop3)):
                         # getNikLoop3 = page.locator('//*[@id="MainContent_GridView1"]/tbody/tr/td[7]').all()
                         nik2text = getNikLoop3[nikw]
                         validasi_click.append(nik2text.inner_text())
-                lengthPage = page.locator("//table[@id='MainContent_DetailsView1']//td[2]")
+                lengthPage = page.locator(
+                    "//table[@id='MainContent_DetailsView1']//td[2]")
                 print("validasi click", len(validasi_click))
                 if len(validasi_click) == int(lengthPage.inner_text()) - 20:
                     print("masuk validasi valid 2 btn click")
-                    getNikLoop3 = page.locator('//*[@id="MainContent_GridView1"]/tbody/tr/td[7]').all()
+                    getNikLoop3 = page.locator(
+                        '//*[@id="MainContent_GridView1"]/tbody/tr/td[7]').all()
                     for valid_ in validasi_click:
                         nikJson[valid_] = "False"
                         jsonData[kabupaten_data][valid_] = "False"
-                    with open(f"data_kabupaten/koperasi_nik_{kabupaten_data}.json", "w") as outfile:
+                    with open(f"ouput_scraping/koperasi_nik_{kabupaten_data}.json", "w") as outfile:
                         json.dump(nikJson, outfile)
 
-                    with open(f"data_kabupaten/data-json-{kabupaten_data}.json", "w") as jsonWrite:
+                    with open(f"ouput_scraping/data-json-{kabupaten_data}.json", "w") as jsonWrite:
                         json.dump(jsonData, jsonWrite)
                     validasi_click.clear()
                     validasi.clear()
+                    nikJson = {}
+                    jsonData = {}
                 elif len(validasi) == int(lengthPage.inner_text()):
                     print("masuk elif validasi ")
-                    with open(f"data_kabupaten/koperasi_nik_{kabupaten_data}.json", "w") as outfile:
+                    with open(f"ouput_scraping/koperasi_nik_{kabupaten_data}.json", "w") as outfile:
                         json.dump(nikJson, outfile)
 
-                    with open(f"data_kabupaten/data-json-{kabupaten_data}.json", "w") as jsonWrite:
+                    with open(f"ouput_scraping/data-json-{kabupaten_data}.json", "w") as jsonWrite:
                         json.dump(jsonData, jsonWrite)
                     validasi_click.clear()
                     validasi.clear()
+                    nikJson = {}
+                    jsonData = {}
                 else:
                     print("masuk while validasi 2 btn click")
                     validasi_click.clear()
                     while True:
-                        btnHome = page.locator('//*[@id="ctl01"]/div[3]/div/div/ul[1]/li[1]/a')
+                        btnHome = page.locator(
+                            '//*[@id="ctl01"]/div[3]/div/div/ul[1]/li[1]/a')
                         btnHome.click()
                         page.reload()
                         print("in yaa", key)
-                        page.locator("#MainContent_DropDownList1").select_option(key)
-                        page.locator("#MainContent_DropDownList2").select_option(kabupaten_data)
-                        lengthPage = page.locator("//table[@id='MainContent_DetailsView1']//td[2]")
+                        page.wait_for_load_state(
+                            "domcontentloaded", timeout=2000)
+                        page.locator(
+                            "#MainContent_DropDownList1").select_option(key)
+                        page.locator("#MainContent_DropDownList2").select_option(
+                            kabupaten_data)
+                        lengthPage = page.locator(
+                            "//table[@id='MainContent_DetailsView1']//td[2]")
                         for pagesLength in range(2, math.ceil(int(lengthPage.inner_text()) / 20) + 1):
                             page.click(
                                 f"table[id=\"MainContent_GridView1\"] > tbody > tr > td > table > tbody > tr > td > a[href=\"javascript:__doPostBack('ctl00$MainContent$GridView1','Page${pagesLength}')\"]"
                             )
-                            page.wait_for_selector('//*[@id="MainContent_GridView1"]/tbody/tr/td[7]').is_visible()
-                            getNikLoop3 = page.locator('//*[@id="MainContent_GridView1"]/tbody/tr/td[7]').all()
+
+                            getNikLoop3 = page.locator(
+                                '//*[@id="MainContent_GridView1"]/tbody/tr/td[7]').all()
                             for nikw in range(len(getNikLoop3)):
-                                getNikLoop3 = page.locator('//*[@id="MainContent_GridView1"]/tbody/tr/td[7]').all()
+                                getNikLoop3 = page.locator(
+                                    '//*[@id="MainContent_GridView1"]/tbody/tr/td[7]').all()
                                 nik2text = getNikLoop3[nikw]
                                 validasi_click.append(nik2text.inner_text())
 
                         if len(validasi_click) == int(lengthPage.inner_text()) - 20:
                             print("validdd while")
-                            getNikLoop3 = page.locator('//*[@id="MainContent_GridView1"]/tbody/tr/td[7]').all()
+                            getNikLoop3 = page.locator(
+                                '//*[@id="MainContent_GridView1"]/tbody/tr/td[7]').all()
                             for valid_ in validasi_click:
                                 nikJson[valid_] = "False"
                                 jsonData[kabupaten_data][valid_] = "False"
@@ -140,10 +174,13 @@ with sync_playwright() as p:
                                 json.dump(jsonData, jsonWrite)
                             validasi_click.clear()
                             validasi.clear()
+                            nikJson = {}
+                            jsonData = {}
                             break
                 with open("./koperasi.json", "w") as outputxx:
                     json.dump(koperasiJson, outputxx)
-                btnHome = page.locator('//*[@id="ctl01"]/div[3]/div/div/ul[1]/li[1]/a')
+                btnHome = page.locator(
+                    '//*[@id="ctl01"]/div[3]/div/div/ul[1]/li[1]/a')
                 btnHome.click()
                 # page.click('//*[@id="ctl01"]/div[3]/div/div/ul[1]/li[1]/a')
                 page.reload()
@@ -159,5 +196,7 @@ with sync_playwright() as p:
 
         with open("data/data-json-full.json", "w") as jsonWrite:
             json.dump(jsonData, jsonWrite)
+    context.close()
     page.close()
-os.system("shutdown -s")
+    browser.close()
+# os.system("shutdown -s")
