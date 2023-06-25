@@ -1,4 +1,4 @@
-from concurrent.futures import ThreadPoolExecutor , as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from selectolax.parser import HTMLParser
 import requests
 import time
@@ -109,14 +109,14 @@ def Target(element):
 
 def process_data(nik):
     try:
-        url = f"http://nik.depkop.go.id/Detail.aspx?KoperasiId={nik}"
-        resp = requests.get(url)
+        url = f"http://nik.depkop.go.id/{nik}"
+        resp = requests.get(url, verify=False)
         html = HTMLParser(resp.text)
         element = html.css("td")
         Target(element)
         return True
     except Exception as e:
-        print(f"Error processing NIK: {nik}, Error: {str(e)}")
+        print(f"Error request from uuid : {nik}, Error: {str(e)}")
         return False
 
 
@@ -128,56 +128,56 @@ def scrape_data(nik_list):
             results.append(future.result())
     return results
 
+
 def checkingBQ(source_nik):
     batch = 4000
-    data_source = [nik_key for nik_key in  source_nik.keys()]
-    start= 0
+    data_source = [nik_key for nik_key in source_nik.keys()]
+    start = 0
     end = 4000
-    append_data =[]
-    for req__ in range(math.ceil(len(data_source)/batch)):
-        print('requst query no :',req__)
-        data_slicing= data_source[start:end]
+    append_data = []
+    for req__ in range(math.ceil(len(data_source) / batch)):
+        print("requst query no :", req__)
+        data_slicing = data_source[start:end]
         query = f"""select item from unnest({data_slicing}) as item where item not in (SELECT NIK FROM `dev-sakti.sakti_rnd_dwh.all_koperasi_web_scraping`)"""
-        data_BQ = pg.read_gbq(query,project_id='dev-sakti')
-        data_ = data_BQ['item']
+        data_BQ = pg.read_gbq(query, project_id="dev-sakti")
+        data_ = data_BQ["item"]
         nikBQ = data_.to_list()
-        print(f'how many data not exist in BQ : {len(nikBQ)}')
+        print(f"how many data not exist in BQ : {len(nikBQ)}")
         for datanik in nikBQ:
             append_data.append(datanik)
-        start +=batch
-        end+=batch
-    if len(nikBQ)==0:
+        start += batch
+        end += batch
+    if len(nikBQ) == 0:
         return []
-        
+
     return append_data
 
-    
 
 df = pd.DataFrame()
-clientBQ = bigquery.Client(project='dev-sakti')
+clientBQ = bigquery.Client(project="dev-sakti")
 
 
-open_source_data = open('./data-nik/koperasi_nik.json')
+open_source_data = open("./data-nik/koperasi_nik.json")
 read_source_data = json.load(open_source_data)
 
-#checking nik between source data in BQ
+# checking nik between source data in BQ
 datafromCheckBq = checkingBQ(read_source_data)
 
-if len(datafromCheckBq)==0:
-    print('data already up to date')
+if len(datafromCheckBq) == 0:
+    print("data already up to date")
 else:
-    #get how many loop needed
+    # get how many loop needed
     batch_size = 1000
     start_batch = 0
-    end_batch=1000
-    len_data_current = math.ceil(len(datafromCheckBq)/batch_size)
+    end_batch = 1000
+    len_data_current = math.ceil(len(datafromCheckBq) / batch_size)
     for n_data in range(len_data_current):
         start_time = time.time()
-        slicing = datafromCheckBq[start_batch : end_batch]
+        slicing = datafromCheckBq[start_batch:end_batch]
         print("Processing...")
         results = scrape_data(slicing)
         print("End Scraping")
-        print('start create df')
+        print("start create df")
         df_concat = pd.DataFrame(
             {
                 "Koperasi": nama_koperasi,
@@ -229,10 +229,10 @@ else:
         )
         df = pd.concat([df_concat, df])
         reset_arrays()
-        start_batch+=batch_size
-        end_batch+=batch_size
+        start_batch += batch_size
+        end_batch += batch_size
         print(f"DONE LOOP {n_data}")
         print("Execution Time:", execution_time)
 
-df.to_csv('testing.csv', index=False)
+df.to_csv("testing.csv", index=False)
 open_source_data.close()
