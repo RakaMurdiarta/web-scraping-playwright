@@ -104,12 +104,12 @@ with sync_playwright() as p:
                     print(f"nilai text {text} sama dengan panjang nik {len(nik_json)}")
 
                     if len(data) == text and len(nik_json) == text:
-                        print("cocok")
                         result = dict(zip(nik_json, data))
                         with open(f"output/koperasi_nik_{kabupaten_data}.json", "w") as outfile:
                             json.dump(result, outfile)
                         data = []
                         nik_json = []
+                        print("process ['SUCCESS]")
                         break
                     print("process ['FAILED] repeat action")
 
