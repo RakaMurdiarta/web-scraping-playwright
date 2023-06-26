@@ -10,6 +10,7 @@ import warnings
 import math
 
 warnings.filterwarnings("ignore")
+clientBQ = bigquery.Client(project="dev-sakti")
 
 
 def reset_arrays():
@@ -147,17 +148,51 @@ def checkingBQ(source_nik):
             append_data.append(datanik)
         start += batch
         end += batch
-    if len(nikBQ) == 0:
+
+    if len(append_data) == 0:
         return []
 
-    return append_data
+    uuid_nik = [source_nik[nik] for nik in append_data if nik in source_nik]
+    return uuid_nik
+
+
+def checkingStatusKoperasi(source_data):
+    query = f"""SELECT NIK FROM `dev-sakti.sakti_rnd_dwh.all_koperasi_web_scraping` where Status = 'Aktif'"""
+    data = clientBQ.query(query).result().to_dataframe()
+    data_BQ = data["NIK"].to_list()
+
+    data_not_in_source = [bq for bq in data_BQ if bq not in source_data]
+    return data_not_in_source
+
+
+def updateBQ(nik):
+    try:
+        format_list = ",".join(f"'{nik_string}'" for nik_string in nik)
+        query = f"""UPDATE `dev-sakti.sakti_rnd_dwh.all_koperasi_web_scraping` SET Status = "Tidak Aktif" WHERE NIK in({format_list})"""
+        job = clientBQ.query(query)
+        job.result()
+        return True
+    except Exception as e:
+        print(f"there is something wrong this is the error {str(e)}")
+        return False
+
+
+def proccess_update(source):
+    batch = 4000
+    start = 0
+    end = 4000
+    for req__ in range(math.ceil(len(source) / batch)):
+        data_slicing = source[start:end]
+        print(f"process")
+        updateBQ(data_slicing)
+        start += batch
+        end += batch
 
 
 df = pd.DataFrame()
-clientBQ = bigquery.Client(project="dev-sakti")
 
 
-open_source_data = open("./data-nik/koperasi_nik.json")
+open_source_data = open("./data-nik/koperasi-uuid.json")
 read_source_data = json.load(open_source_data)
 
 # checking nik between source data in BQ
@@ -209,6 +244,7 @@ else:
                 "Status_NIK": status_nik,
                 "Tanggal_Berlaku_Sertipikat": tgl_berlaku_serti,
                 "Status_Grade": status_grade,
+                "Status": "Aktif",
             }
         )
 
@@ -234,5 +270,10 @@ else:
         print(f"DONE LOOP {n_data}")
         print("Execution Time:", execution_time)
 
-df.to_csv("testing.csv", index=False)
+
+print("prosess checking status koperasi")
+list_koperasi_tidak_aktif = checkingStatusKoperasi(read_source_data)
+if not len(list_koperasi_tidak_aktif) == 0:
+    proccess_update(list_koperasi_tidak_aktif)
+print("proses check done .....")
 open_source_data.close()
