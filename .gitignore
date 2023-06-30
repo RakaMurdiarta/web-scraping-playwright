@@ -2,4 +2,6 @@ data-nik/*
 .env
 /output/*
 test.py
-.gitignore
+scraping-ovagames/auth
+scraping-ovagames/output
+scraping-ovagames/checkpoint/
