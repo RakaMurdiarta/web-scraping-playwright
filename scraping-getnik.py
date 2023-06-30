@@ -20,7 +20,7 @@ def read_all_json():
 with sync_playwright() as p:
     state = read_all_json()
     print(state)
-    browser = p.chromium.launch(headless=False)
+    browser = p.chromium.launch(headless=True)
     context = browser.new_context(ignore_https_errors=True, bypass_csp=True)
     page = context.new_page()
     page.goto("http://nik.depkop.go.id/")
